@@ -1,0 +1,50 @@
+name: Build Zephyr Application
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python and pipx
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install --user pipx
+        python3 -m pipx ensurepath
+
+    - name: Install west (Zephyr meta-tool)
+      run: |
+        pipx install west
+
+    - name: Install Zephyr build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build gperf ccache dfu-util device-tree-compiler wget cmake python3-pip
+
+    - name: Initialize Zephyr workspace
+      run: |
+        west init -l .
+        west update
+        west zephyr-export
+
+    - name: Install Python requirements
+      run: |
+        pipx inject west pyelftools
+
+    - name: Build Zephyr App (nrf52840dk/nrf52840)
+      run: |
+        west build -b nrf52840dk/nrf52840 --pristine
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: zephyr-build
+        path: build/zephyr/
